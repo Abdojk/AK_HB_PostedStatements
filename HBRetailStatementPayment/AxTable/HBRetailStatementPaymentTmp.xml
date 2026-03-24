@@ -61,9 +61,9 @@ public class HBRetailStatementPaymentTmp extends common
     </AxTableField>
     <AxTableField xmlns=""
       i:type="AxTableFieldReal">
-      <Name>TotalCounted</Name>
+      <Name>TotalAmount</Name>
       <ExtendedDataType>AmountMST</ExtendedDataType>
-      <Label>Total Counted</Label>
+      <Label>Total Amount</Label>
     </AxTableField>
   </Fields>
   <FieldGroups>
@@ -86,7 +86,7 @@ public class HBRetailStatementPaymentTmp extends common
           <DataField>CurrencyCode</DataField>
         </AxTableFieldGroupField>
         <AxTableFieldGroupField>
-          <DataField>TotalCounted</DataField>
+          <DataField>TotalAmount</DataField>
         </AxTableFieldGroupField>
       </Fields>
     </AxTableFieldGroup>
