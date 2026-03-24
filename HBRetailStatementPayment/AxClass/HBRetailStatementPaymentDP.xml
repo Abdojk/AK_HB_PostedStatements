@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>HBRetailStatementPaymentDP</Name>
+  <SourceCode>
+    <Declaration><![CDATA[
+/// <summary>
+/// Data provider for the Hugo Boss Retail Statement Payment Summary report.
+/// Queries RetailStatementJour (header) joined to RetailStatementLine (tender lines),
+/// RetailChannelView (store name), and RetailStoreTenderTypeTable (tender type name).
+/// Aggregates CountedAmount per Store, Payment Method, and Currency for
+/// posted Financial statements (StatementType = 1).
+/// </summary>
+[SRSReportParameterAttribute(classStr(HBRetailStatementPaymentContract))]
+class HBRetailStatementPaymentDP extends SRSReportDataProviderBase
+{
+    HBRetailStatementPaymentTmp tmpTable;
+
+}
+]]></Declaration>
+    <Methods>
+      <Method>
+        <Name>getTmp</Name>
+        <Source><![CDATA[
+    /// <summary>
+    /// Returns the temporary table populated by processReport().
+    /// </summary>
+    [SRSReportDataSetAttribute(tableStr(HBRetailStatementPaymentTmp))]
+    public HBRetailStatementPaymentTmp getTmp()
+    {
+        select tmpTable;
+        return tmpTable;
+    }
+]]></Source>
+      </Method>
+      <Method>
+        <Name>processReport</Name>
+        <Source><![CDATA[
+    /// <summary>
+    /// Main report processing logic. Reads contract parameters, queries the
+    /// confirmed schema tables, aggregates counted amounts, and populates
+    /// the temporary table for the RDL to consume.
+    /// </summary>
+    public void processReport()
+    {
+        HBRetailStatementPaymentContract    contract;
+        TransDate                           fromDate;
+        TransDate                           toDate;
+        List                                storeIds;
+        ListEnumerator                      storeEnum;
+        str                                 storeRangeValue;
+
+        RetailStatementJour                 stmtJour;
+        RetailStatementLine                 stmtLine;
+
+        Query                               query;
+        QueryBuildDataSource                qbdsLine;
+        QueryBuildDataSource                qbdsJour;
+        QueryRun                            queryRun;
+
+        // Lookup tables for names
+        RetailChannelView                   channelView;
+        RetailStoreTenderTypeTable          tenderType;
+
+        contract    = this.parmDataContract() as HBRetailStatementPaymentContract;
+        fromDate    = contract.parmFromDate();
+        toDate      = contract.parmToDate();
+        storeIds    = contract.parmStoreIds();
+
+        // Build the store range value as comma-separated string for query filter
+        storeRangeValue = '';
+        if (storeIds && storeIds.elements() > 0)
+        {
+            storeEnum = storeIds.getEnumerator();
+            while (storeEnum.moveNext())
+            {
+                if (storeRangeValue)
+                {
+                    storeRangeValue += ',';
+                }
+                storeRangeValue += storeEnum.current();
+            }
+        }
+
+        // Use while select with group by for aggregation
+        // The D365 company context (DataAreaId) is handled automatically in X++
+        while select sum(CountedAmount)
+            from stmtLine
+            group by stmtLine.StoreId, stmtLine.TenderTypeId, stmtLine.Currency
+            join stmtJour
+                where stmtJour.StatementId  == stmtLine.StatementId
+                   && stmtJour.dataAreaId   == stmtLine.dataAreaId
+                   && stmtJour.StatementType == RetailStatementType::Financial
+                   && stmtJour.StatementDate >= fromDate
+                   && stmtJour.StatementDate <= toDate
+        {
+            // Apply store filter if specified
+            if (storeRangeValue && !SysQuery::findValue(storeRangeValue, stmtLine.StoreId))
+            {
+                continue;
+            }
+
+            // Look up store name from RetailChannelView
+            select firstonly Name from channelView
+                where channelView.RetailChannelId == stmtLine.StoreId;
+
+            // Look up tender type name from RetailStoreTenderTypeTable
+            select firstonly Name from tenderType
+                where tenderType.TenderTypeId == stmtLine.TenderTypeId
+                   && tenderType.Channel      == channelView.RecId
+                   && tenderType.dataAreaId   == stmtLine.dataAreaId;
+
+            tmpTable.clear();
+            tmpTable.StoreId        = stmtLine.StoreId;
+            tmpTable.StoreName      = channelView.Name;
+            tmpTable.TenderTypeId   = stmtLine.TenderTypeId;
+            tmpTable.TenderTypeName = tenderType.Name;
+            tmpTable.CurrencyCode   = stmtLine.Currency;
+            tmpTable.TotalCounted   = stmtLine.CountedAmount;
+            tmpTable.insert();
+        }
+    }
+]]></Source>
+      </Method>
+    </Methods>
+  </SourceCode>
+</AxClass>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>HBRetailStatementPaymentTmp</Name>
+  <SourceCode>
+    <Declaration><![CDATA[
+/// <summary>
+/// Temporary table for the Hugo Boss Retail Statement Payment Summary report.
+/// Holds aggregated counted amounts per Store, Payment Method, and Currency
+/// for posted Financial statements.
+/// </summary>
+public class HBRetailStatementPaymentTmp extends common
+{
+}
+]]></Declaration>
+    <Methods />
+  </SourceCode>
+  <Label>HB Retail Statement Payment Tmp</Label>
+  <TableType>TempDB</TableType>
+  <CacheLookup>NotInTTS</CacheLookup>
+  <CreatedBy>No</CreatedBy>
+  <CreatedDateTime>No</CreatedDateTime>
+  <ModifiedBy>No</ModifiedBy>
+  <ModifiedDateTime>No</ModifiedDateTime>
+  <SaveDataPerCompany>No</SaveDataPerCompany>
+  <PrimaryIndex>SurrogateKey</PrimaryIndex>
+  <ClusterIndex>SurrogateKey</ClusterIndex>
+  <Fields>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldString">
+      <Name>StoreId</Name>
+      <ExtendedDataType>RetailStoreId</ExtendedDataType>
+      <Label>Store ID</Label>
+      <StringSize>10</StringSize>
+    </AxTableField>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldString">
+      <Name>StoreName</Name>
+      <ExtendedDataType>Name</ExtendedDataType>
+      <Label>Store Name</Label>
+      <StringSize>100</StringSize>
+    </AxTableField>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldString">
+      <Name>TenderTypeId</Name>
+      <Label>Payment Method Code</Label>
+      <StringSize>10</StringSize>
+    </AxTableField>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldString">
+      <Name>TenderTypeName</Name>
+      <ExtendedDataType>Name</ExtendedDataType>
+      <Label>Payment Method</Label>
+      <StringSize>60</StringSize>
+    </AxTableField>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldString">
+      <Name>CurrencyCode</Name>
+      <ExtendedDataType>CurrencyCode</ExtendedDataType>
+      <Label>Currency</Label>
+      <StringSize>3</StringSize>
+    </AxTableField>
+    <AxTableField xmlns=""
+      i:type="AxTableFieldReal">
+      <Name>TotalCounted</Name>
+      <ExtendedDataType>AmountMST</ExtendedDataType>
+      <Label>Total Counted</Label>
+    </AxTableField>
+  </Fields>
+  <FieldGroups>
+    <AxTableFieldGroup>
+      <Name>AutoReport</Name>
+      <Fields>
+        <AxTableFieldGroupField>
+          <DataField>StoreId</DataField>
+        </AxTableFieldGroupField>
+        <AxTableFieldGroupField>
+          <DataField>StoreName</DataField>
+        </AxTableFieldGroupField>
+        <AxTableFieldGroupField>
+          <DataField>TenderTypeId</DataField>
+        </AxTableFieldGroupField>
+        <AxTableFieldGroupField>
+          <DataField>TenderTypeName</DataField>
+        </AxTableFieldGroupField>
+        <AxTableFieldGroupField>
+          <DataField>CurrencyCode</DataField>
+        </AxTableFieldGroupField>
+        <AxTableFieldGroupField>
+          <DataField>TotalCounted</DataField>
+        </AxTableFieldGroupField>
+      </Fields>
+    </AxTableFieldGroup>
+  </FieldGroups>
+  <Indexes />
+  <Mappings />
+  <Relations />
+  <DeleteActions />
+</AxTable>

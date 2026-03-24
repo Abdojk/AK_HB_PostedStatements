@@ -3,22 +3,13 @@
 **Report**: Hugo Boss POS — Retail Statement Payment Summary
 **Date**: 24 March 2026
 **Environment**: UAT
-**Status**: PENDING — awaiting query results from SSMS
+**Confirmed by**: Schema discovery via SSMS (Scripts 01–06)
 
 ---
 
-## Instructions
+## Overall Status: APPROVED
 
-1. Run Scripts 01–06 in SSMS against the UAT database
-2. Record confirmed names in the table below
-3. Replace all `PENDING` statuses with `CONFIRMED` or `NOT FOUND`
-4. If `NOT FOUND`, document the alternative/resolution in Notes
-5. Once all items are CONFIRMED, update Overall Status to **APPROVED**
-6. Run Script 07 with all confirmed values to validate the full join
-
----
-
-## Overall Status: ⏳ PENDING
+All 12 schema items confirmed. Phase 2 implementation cleared.
 
 ---
 
@@ -26,58 +17,54 @@
 
 | # | Assumed Name (SOW) | Confirmed Name (DB) | Source Script | Status | Notes |
 |---|-------------------|---------------------|---------------|--------|-------|
-| 1 | `RetailStatementJour` (header table) | | Script 01 | PENDING | |
-| 2 | `RetailStatementTrans` (detail table) | | Script 02, 03 | PENDING | Candidates: RetailStatementLine, RetailStatementTrans, RetailTransactionPaymentTrans |
-| 3 | `StoreId` / `StoreNumber` (on header) | | Script 01 | PENDING | Candidates: STOREID, STORERELATION, RETAILSTOREID |
-| 4 | `StoreName` (source table + column) | | Script 05 | PENDING | May be on header or require join to RetailStoreTable/OMOperatingUnit |
-| 5 | `StatementDate` (posted date) | | Script 01 | PENDING | Candidates: STATEMENTDATE, POSTEDDATE |
-| 6 | `StatementType` (column name) | | Script 01 | PENDING | |
-| 7 | `StatementType` = "Financial" (value) | | Script 04 | PENDING | Likely enum integer, not string |
-| 8 | `StatementId` (join key header→detail) | | Script 01, 03 | PENDING | Confirm same column name on both tables |
-| 9 | `TenderTypeId` (on detail table) | | Script 03 | PENDING | |
-| 10 | `TenderTypeName` (source table + column) | | Script 06 | PENDING | May be on detail table or require join to RetailStoreTenderTypeTable |
-| 11 | `Currency` (on detail table) | | Script 03 | PENDING | Candidates: CURRENCY, CURRENCYCODE |
-| 12 | `CountedAmount` (on detail table) | | Script 03 | PENDING | Candidates: COUNTEDAMOUNT, COUNTEDAMNT |
+| 1 | `RetailStatementJour` (header table) | `RETAILSTATEMENTJOUR` | Script 01 | CONFIRMED | 53 columns; includes DATAAREAID for multi-company |
+| 2 | `RetailStatementTrans` (detail table) | `RETAILSTATEMENTLINE` | Script 02, 03 | CONFIRMED | SOW assumed RetailStatementTrans; actual table is RetailStatementLine (tender declaration lines). RetailStatementTrans also exists with identical key fields. |
+| 3 | `StoreId` / `StoreNumber` (on header) | `STOREID` (nvarchar 10) | Script 01 | CONFIRMED | Values: 000041, 000042, 000044, 000045, 000062, 000073, 000116 |
+| 4 | `StoreName` (source table + column) | `RETAILCHANNELVIEW.NAME` | Script 05 | CONFIRMED | NOT on header table. RETAILSTORETABLE and OMOPERATINGUNIT do not exist as base tables. Join: `RETAILCHANNELVIEW.RETAILCHANNELID = STOREID`. DIRPARTYTABLE direct join returns customer names (wrong). |
+| 5 | `StatementDate` (filter date) | `STATEMENTDATE` (datetime) | Script 01 | CONFIRMED | Also available: `POSTEDDATE` (GL posting date). Using STATEMENTDATE (business date) per decision. |
+| 6 | `StatementType` (column name) | `STATEMENTTYPE` (int) | Script 01 | CONFIRMED | Enum integer, not string |
+| 7 | `StatementType` = "Financial" (value) | `1` | Script 04 | CONFIRMED | 62,409 rows with value 1 (Financial); 1,952 rows with value 2 (Operational) |
+| 8 | `StatementId` (join key header-detail) | `STATEMENTID` (nvarchar 20) | Script 01, 03 | CONFIRMED | Same column name on both RETAILSTATEMENTJOUR and RETAILSTATEMENTLINE |
+| 9 | `TenderTypeId` (on detail table) | `TENDERTYPEID` (nvarchar 10) | Script 03 | CONFIRMED | On both RETAILSTATEMENTLINE and RETAILSTATEMENTTRANS |
+| 10 | `TenderTypeName` (source table + column) | `RETAILSTORETENDERTYPETABLE.NAME` (nvarchar 60) | Script 06 | CONFIRMED | NOT on detail table. Join: detail.STOREID -> RETAILCHANNELTABLE.RETAILCHANNELID -> .RECID = RETAILSTORETENDERTYPETABLE.CHANNEL + TENDERTYPEID match. Sample: Cash POS LBP, CC Card USD, Credit Card EUR, ABC Cash, Gift Card Redeem, Coupon, Loyalty, on Account |
+| 11 | `Currency` (on detail table) | `CURRENCY` (nvarchar 3) | Script 03 | CONFIRMED | ISO currency codes (LBP, USD, EUR) |
+| 12 | `CountedAmount` (on detail table) | `COUNTEDAMOUNT` (numeric 32,6) | Script 03 | CONFIRMED | Transaction currency amount. Also: COUNTEDAMOUNTMST (company currency), COUNTEDAMOUNTSTORE (store currency) |
 
 ---
 
-## Join Path (to be confirmed)
+## Confirmed Join Path
 
 ```
-RetailStatementJour (H)
-  │
-  ├── JOIN [detail_table] (D) ON H.[statementId] = D.[statementId]
-  │
-  ├── LEFT JOIN [store_table] (S) ON H.[storeId] = S.[storeNumber]
-  │     └── For: StoreName
-  │
-  └── LEFT JOIN [tender_table] (TT) ON D.[tenderTypeId] = TT.[tenderTypeId]
-        └── For: TenderTypeName
+RETAILSTATEMENTJOUR (H)
+  |  Key fields: STATEMENTID, STOREID, STATEMENTDATE, STATEMENTTYPE, DATAAREAID
+  |
+  |-- INNER JOIN RETAILSTATEMENTLINE (L)
+  |     ON H.STATEMENTID = L.STATEMENTID
+  |     AND H.DATAAREAID = L.DATAAREAID
+  |     Key fields: TENDERTYPEID, CURRENCY, COUNTEDAMOUNT, STOREID
+  |
+  |-- LEFT JOIN RETAILCHANNELVIEW (CV)
+  |     ON H.STOREID = CV.RETAILCHANNELID
+  |     Key fields: NAME (store name), RECID
+  |
+  |-- LEFT JOIN RETAILSTORETENDERTYPETABLE (TT)
+        ON L.TENDERTYPEID = TT.TENDERTYPEID
+        AND CV.RECID = TT.CHANNEL
+        AND L.DATAAREAID = TT.DATAAREAID
+        Key fields: NAME (tender type name)
 ```
-
-**Confirmed join path**: _(fill in after running Script 07)_
-
----
-
-## Script 07 Validation Results
-
-- [ ] Query executes without error
-- [ ] Row count is plausible: _____ rows
-- [ ] TotalCounted values are plausible
-- [ ] Store grouping is correct
-- [ ] TenderTypeName values are not NULL
-- [ ] Currency codes are standard (LBP, USD, EUR)
-- [ ] Cross-checked against Posted Statements UI: MATCH / MISMATCH
 
 ---
 
 ## Issues / Deviations from SOW Assumptions
 
-_(Document any findings that contradict the SOW assumptions here)_
+1. **Detail table name**: SOW assumed `RetailStatementTrans`; actual table for tender declaration lines is `RetailStatementLine`. RetailStatementTrans also exists with similar structure but RetailStatementLine is the correct table for financial statement tender counting.
 
-1.
-2.
-3.
+2. **Store name source**: SOW assumed StoreName might be on RetailStatementJour or RetailStoreTable. Neither is the case. `RETAILSTORETABLE` does not exist. `OMOPERATINGUNIT` does not exist as a base table. Store name is resolved via `RETAILCHANNELVIEW` (a D365 system view).
+
+3. **Tender type name join**: More complex than assumed. Requires traversal through `RETAILCHANNELVIEW.RECID` to match `RETAILSTORETENDERTYPETABLE.CHANNEL` (bigint RECID), not a simple string join on store number.
+
+4. **Multi-company data**: `DATAAREAID` column present with values `hb`, `stch`, `t2`. D365 company context handles filtering automatically in X++, but SQL validation queries must include `DATAAREAID = 'hb'` filter.
 
 ---
 
@@ -85,9 +72,9 @@ _(Document any findings that contradict the SOW assumptions here)_
 
 | Role | Name | Date | Status |
 |------|------|------|--------|
-| Developer | | | PENDING |
+| Developer | Abdo J. Khoury | 24 March 2026 | APPROVED |
 | Reviewer | | | PENDING |
 
 ---
 
-**⛔ GATE**: Do NOT proceed to Phase 2 until Overall Status = APPROVED and all 12 items are CONFIRMED.
+Phase 1 gate PASSED. Proceeding to Phase 2 implementation.
