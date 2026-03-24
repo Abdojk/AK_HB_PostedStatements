@@ -1,91 +1,100 @@
 -- ============================================================================
--- Script 07: Join Validation — Full Aggregation Query
+-- Script 07: Join Validation — Full Aggregation Query (CONFIRMED SCHEMA)
 -- Purpose : Validate the complete join path and confirm that the aggregated
 --           Counted Amount is correct. This query mirrors what the X++ RDP
 --           class will execute.
 -- Run In  : SSMS against UAT database
 -- Reference: SOW-T2-001 Phase 1
+-- Updated : 24 March 2026 — all placeholders replaced with confirmed values
 -- ============================================================================
 
--- ⚠️  INSTRUCTIONS:
--- This script CANNOT be run until Scripts 01-06 have been executed and
--- all placeholders below have been replaced with confirmed values.
--- DO NOT run this script with placeholder values.
-
--- ============================================================================
--- Replace ALL bracketed placeholders with confirmed column/table names:
--- ============================================================================
--- [HEADER_TABLE]       = RetailStatementJour (confirmed from Script 01)
--- [DETAIL_TABLE]       = _______________ (confirmed from Script 02/03)
--- [STORE_TABLE]        = _______________ (confirmed from Script 05)
--- [TENDER_TABLE]       = _______________ (confirmed from Script 06)
--- [STOREID_COL]        = _______________ (confirmed from Script 01)
--- [STATEMENTID_COL]    = _______________ (confirmed from Script 01)
--- [STATEMENTTYPE_COL]  = _______________ (confirmed from Script 01)
--- [STATEMENTDATE_COL]  = _______________ (confirmed from Script 01)
--- [FINANCIAL_VALUE]    = _______________ (confirmed from Script 04)
--- [TENDERTYPEID_COL]   = _______________ (confirmed from Script 03)
--- [CURRENCY_COL]       = _______________ (confirmed from Script 03)
--- [COUNTEDAMOUNT_COL]  = _______________ (confirmed from Script 03)
--- [STORENAME_COL]      = _______________ (confirmed from Script 05)
--- [TENDERNAME_COL]     = _______________ (confirmed from Script 06)
--- ============================================================================
-
-/*
 -- 7a. Full aggregation query (mirrors the RDP class logic)
 SELECT
-    H.[STOREID_COL]                         AS StoreId,
-    S.[STORENAME_COL]                       AS StoreName,
-    D.[TENDERTYPEID_COL]                    AS TenderTypeId,
-    TT.[TENDERNAME_COL]                     AS TenderTypeName,
-    D.[CURRENCY_COL]                        AS CurrencyCode,
-    SUM(D.[COUNTEDAMOUNT_COL])              AS TotalCounted
-FROM [HEADER_TABLE] H
-INNER JOIN [DETAIL_TABLE] D
-    ON H.[STATEMENTID_COL] = D.[STATEMENTID_COL]
-   -- AND H.[STOREID_COL] = D.[STOREID_COL]  -- ← uncomment if composite key
-LEFT JOIN [STORE_TABLE] S
-    ON H.[STOREID_COL] = S.[STORENUMBER_COL]
-LEFT JOIN [TENDER_TABLE] TT
-    ON D.[TENDERTYPEID_COL] = TT.[TENDERTYPEID_COL]
-   -- AND H.[STOREID_COL] = TT.[STORENUMBER_COL]  -- ← uncomment if per-store
-WHERE H.[STATEMENTTYPE_COL] = [FINANCIAL_VALUE]
-  AND H.[STATEMENTDATE_COL] >= '2025-01-01'    -- ← replace with test date range
-  AND H.[STATEMENTDATE_COL] <= '2026-03-24'    -- ← replace with test date range
-  AND H.[STOREID_COL] IN ('STORE1')             -- ← replace with test store(s)
+    H.STOREID                               AS StoreId,
+    CV.NAME                                 AS StoreName,
+    L.TENDERTYPEID                          AS TenderTypeId,
+    TT.NAME                                 AS TenderTypeName,
+    L.CURRENCY                              AS CurrencyCode,
+    SUM(L.COUNTEDAMOUNT)                    AS TotalCounted
+FROM RETAILSTATEMENTJOUR H
+INNER JOIN RETAILSTATEMENTLINE L
+    ON H.STATEMENTID = L.STATEMENTID
+    AND H.DATAAREAID = L.DATAAREAID
+LEFT JOIN RETAILCHANNELVIEW CV
+    ON H.STOREID = CV.RETAILCHANNELID
+LEFT JOIN RETAILSTORETENDERTYPETABLE TT
+    ON L.TENDERTYPEID = TT.TENDERTYPEID
+    AND CV.RECID = TT.CHANNEL
+    AND L.DATAAREAID = TT.DATAAREAID
+WHERE H.STATEMENTTYPE = 1                  -- Financial statements only
+  AND H.STATEMENTDATE >= '2026-03-01'      -- Replace with test date range
+  AND H.STATEMENTDATE <= '2026-03-24'      -- Replace with test date range
+  AND H.STOREID IN ('000041')              -- Replace with test store(s)
+  AND H.DATAAREAID = 'hb'                  -- Hugo Boss legal entity
 GROUP BY
-    H.[STOREID_COL],
-    S.[STORENAME_COL],
-    D.[TENDERTYPEID_COL],
-    TT.[TENDERNAME_COL],
-    D.[CURRENCY_COL]
+    H.STOREID,
+    CV.NAME,
+    L.TENDERTYPEID,
+    TT.NAME,
+    L.CURRENCY
 ORDER BY
-    H.[STOREID_COL],
-    TT.[TENDERNAME_COL],
-    D.[CURRENCY_COL];
-*/
+    H.STOREID,
+    TT.NAME,
+    L.CURRENCY;
 
 -- 7b. Row count check (sanity test)
-/*
-SELECT COUNT(*) AS TotalRows
-FROM [HEADER_TABLE] H
-INNER JOIN [DETAIL_TABLE] D
-    ON H.[STATEMENTID_COL] = D.[STATEMENTID_COL]
-WHERE H.[STATEMENTTYPE_COL] = [FINANCIAL_VALUE]
-  AND H.[STATEMENTDATE_COL] >= '2025-01-01'
-  AND H.[STATEMENTDATE_COL] <= '2026-03-24';
-*/
+SELECT COUNT(*) AS TotalDetailRows
+FROM RETAILSTATEMENTJOUR H
+INNER JOIN RETAILSTATEMENTLINE L
+    ON H.STATEMENTID = L.STATEMENTID
+    AND H.DATAAREAID = L.DATAAREAID
+WHERE H.STATEMENTTYPE = 1
+  AND H.STATEMENTDATE >= '2026-03-01'
+  AND H.STATEMENTDATE <= '2026-03-24'
+  AND H.DATAAREAID = 'hb';
+
+-- 7c. Multi-store test
+SELECT
+    H.STOREID                               AS StoreId,
+    CV.NAME                                 AS StoreName,
+    L.TENDERTYPEID                          AS TenderTypeId,
+    TT.NAME                                 AS TenderTypeName,
+    L.CURRENCY                              AS CurrencyCode,
+    SUM(L.COUNTEDAMOUNT)                    AS TotalCounted
+FROM RETAILSTATEMENTJOUR H
+INNER JOIN RETAILSTATEMENTLINE L
+    ON H.STATEMENTID = L.STATEMENTID
+    AND H.DATAAREAID = L.DATAAREAID
+LEFT JOIN RETAILCHANNELVIEW CV
+    ON H.STOREID = CV.RETAILCHANNELID
+LEFT JOIN RETAILSTORETENDERTYPETABLE TT
+    ON L.TENDERTYPEID = TT.TENDERTYPEID
+    AND CV.RECID = TT.CHANNEL
+    AND L.DATAAREAID = TT.DATAAREAID
+WHERE H.STATEMENTTYPE = 1
+  AND H.STATEMENTDATE >= '2026-03-01'
+  AND H.STATEMENTDATE <= '2026-03-24'
+  AND H.STOREID IN ('000041', '000042', '000044', '000045')
+  AND H.DATAAREAID = 'hb'
+GROUP BY
+    H.STOREID,
+    CV.NAME,
+    L.TENDERTYPEID,
+    TT.NAME,
+    L.CURRENCY
+ORDER BY
+    H.STOREID,
+    TT.NAME,
+    L.CURRENCY;
 
 -- ============================================================================
 -- VALIDATION CHECKLIST:
 -- ============================================================================
--- [ ] Query executes without error
--- [ ] Row count is plausible (not 0, not millions)
+-- [ ] Query 7a executes without error
+-- [ ] Row count (7b) is plausible (not 0, not millions)
 -- [ ] TotalCounted values are plausible (positive amounts, correct magnitude)
--- [ ] Store grouping is correct
--- [ ] Payment methods are correctly named (not NULL TenderTypeName)
--- [ ] Currency codes are standard (LBP, USD, EUR, etc.)
+-- [ ] Store grouping is correct (7c shows multiple stores)
+-- [ ] TenderTypeName values are not NULL
+-- [ ] Currency codes are standard (LBP, USD, EUR)
 -- [ ] Cross-check 1-2 rows against Posted Statements UI for accuracy
---
--- If any check fails, flag the issue before proceeding to Phase 2.
 -- ============================================================================

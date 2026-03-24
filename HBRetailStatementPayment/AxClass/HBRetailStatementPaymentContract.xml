@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>HBRetailStatementPaymentContract</Name>
+  <SourceCode>
+    <Declaration><![CDATA[
+/// <summary>
+/// Data contract for the Hugo Boss Retail Statement Payment Summary report.
+/// Holds user-facing parameters: Store IDs (multi-select), From Date, and To Date.
+/// Statement Type = Financial is hard-coded in the Data Provider, not exposed here.
+/// </summary>
+[DataContractAttribute]
+class HBRetailStatementPaymentContract
+{
+    List        storeIds;
+    TransDate   fromDate;
+    TransDate   toDate;
+
+}
+]]></Declaration>
+    <Methods>
+      <Method>
+        <Name>parmStoreIds</Name>
+        <Source><![CDATA[
+    [
+        DataMemberAttribute('StoreIds'),
+        AifCollectionTypeAttribute('StoreIds', Types::String),
+        SysOperationLabelAttribute(literalStr("Store"))
+    ]
+    public List parmStoreIds(List _storeIds = storeIds)
+    {
+        storeIds = _storeIds;
+        return storeIds;
+    }
+]]></Source>
+      </Method>
+      <Method>
+        <Name>parmFromDate</Name>
+        <Source><![CDATA[
+    [
+        DataMemberAttribute('FromDate'),
+        SysOperationLabelAttribute(literalStr("From Date"))
+    ]
+    public TransDate parmFromDate(TransDate _fromDate = fromDate)
+    {
+        fromDate = _fromDate;
+        return fromDate;
+    }
+]]></Source>
+      </Method>
+      <Method>
+        <Name>parmToDate</Name>
+        <Source><![CDATA[
+    [
+        DataMemberAttribute('ToDate'),
+        SysOperationLabelAttribute(literalStr("To Date"))
+    ]
+    public TransDate parmToDate(TransDate _toDate = toDate)
+    {
+        toDate = _toDate;
+        return toDate;
+    }
+]]></Source>
+      </Method>
+    </Methods>
+  </SourceCode>
+</AxClass>

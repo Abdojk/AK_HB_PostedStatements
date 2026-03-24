@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>HBRetailStatementPaymentController</Name>
+  <SourceCode>
+    <Declaration><![CDATA[
+/// <summary>
+/// Controller class for the Hugo Boss Retail Statement Payment Summary report.
+/// Entry point — launches report from menu item, binds contract to RDP.
+/// </summary>
+class HBRetailStatementPaymentController extends SrsReportRunController
+{
+
+}
+]]></Declaration>
+    <Methods>
+      <Method>
+        <Name>main</Name>
+        <Source><![CDATA[
+    /// <summary>
+    /// Entry point for the report. Called from the output menu item.
+    /// </summary>
+    /// <param name="_args">The args object from the calling menu item.</param>
+    public static void main(Args _args)
+    {
+        HBRetailStatementPaymentController controller = new HBRetailStatementPaymentController();
+
+        controller.parmReportName(ssrsReportStr(HBRetailStatementPaymentReport, Report));
+        controller.parmDialogCaption("@HB:PostedStatementPaymentSummary");
+        controller.parmArgs(_args);
+        controller.startOperation();
+    }
+]]></Source>
+      </Method>
+      <Method>
+        <Name>prePromptModifyContract</Name>
+        <Source><![CDATA[
+    /// <summary>
+    /// Optional: set default parameter values before the dialog is shown.
+    /// Sets default date range to current month.
+    /// </summary>
+    protected void prePromptModifyContract()
+    {
+        HBRetailStatementPaymentContract contract = this.parmReportContract().parmRdpContract() as HBRetailStatementPaymentContract;
+
+        // Default From Date to first day of current month
+        if (!contract.parmFromDate())
+        {
+            contract.parmFromDate(dateStartMth(today()));
+        }
+
+        // Default To Date to today
+        if (!contract.parmToDate())
+        {
+            contract.parmToDate(today());
+        }
+    }
+]]></Source>
+      </Method>
+    </Methods>
+  </SourceCode>
+</AxClass>

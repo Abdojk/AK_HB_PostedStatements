@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxMenuItemOutput xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>HBRetailStatementPaymentReport</Name>
+  <Label>Posted Statement Payment Summary</Label>
+  <HelpText>View aggregated counted amounts by payment method and currency for posted financial statements.</HelpText>
+  <ObjectType>Class</ObjectType>
+  <Object>HBRetailStatementPaymentController</Object>
+  <LinkedPermissionType>SSRSReport</LinkedPermissionType>
+  <LinkedPermissionObject>HBRetailStatementPaymentReport</LinkedPermissionObject>
+</AxMenuItemOutput>
