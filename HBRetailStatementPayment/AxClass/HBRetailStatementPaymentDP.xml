@@ -5,9 +5,9 @@
     <Declaration><![CDATA[
 /// <summary>
 /// Data provider for the Hugo Boss Retail Statement Payment Summary report.
-/// Queries RetailStatementJour (header) joined to RetailTransactionPaymentTrans (payment lines),
+/// Queries RetailStatementJour (header) joined to RetailStatementLine (tender lines),
 /// RetailChannelView (store name), and RetailStoreTenderTypeTable (tender type name).
-/// Aggregates AmountTendered per Store, Payment Method, and Currency for
+/// Aggregates CountedAmount per Store, Payment Method, and Currency for
 /// posted Financial statements (StatementType = 1).
 /// </summary>
 [SRSReportParameterAttribute(classStr(HBRetailStatementPaymentContract))]
@@ -37,7 +37,7 @@ class HBRetailStatementPaymentDP extends SRSReportDataProviderBase
         <Source><![CDATA[
     /// <summary>
     /// Main report processing logic. Reads contract parameters, queries the
-    /// confirmed schema tables, aggregates payment amounts, and populates
+    /// confirmed schema tables, aggregates counted amounts, and populates
     /// the temporary table for the RDL to consume.
     /// </summary>
     public void processReport()
@@ -50,7 +50,7 @@ class HBRetailStatementPaymentDP extends SRSReportDataProviderBase
         str                                 storeRangeValue;
 
         RetailStatementJour                 stmtJour;
-        RetailTransactionPaymentTrans       paymentTrans;
+        RetailStatementLine                 stmtLine;
 
         Query                               query;
         QueryBuildDataSource                qbdsLine;
@@ -83,42 +83,39 @@ class HBRetailStatementPaymentDP extends SRSReportDataProviderBase
 
         // Use while select with group by for aggregation
         // The D365 company context (DataAreaId) is handled automatically in X++
-        // Detail table: RetailTransactionPaymentTrans
-        // Column mapping: TenderType (not TenderTypeId), AmountTendered (not CountedAmount), Store (not StoreId)
-        while select sum(AmountTendered)
-            from paymentTrans
-            group by paymentTrans.Store, paymentTrans.TenderType, paymentTrans.Currency
+        while select sum(CountedAmount)
+            from stmtLine
+            group by stmtLine.StoreId, stmtLine.TenderTypeId, stmtLine.Currency
             join stmtJour
-                where stmtJour.StatementId  == paymentTrans.StatementId
-                   && stmtJour.dataAreaId   == paymentTrans.dataAreaId
+                where stmtJour.StatementId  == stmtLine.StatementId
+                   && stmtJour.dataAreaId   == stmtLine.dataAreaId
                    && stmtJour.StatementType == RetailStatementType::Financial
                    && stmtJour.StatementDate >= fromDate
                    && stmtJour.StatementDate <= toDate
         {
             // Apply store filter if specified
-            if (storeRangeValue && !SysQuery::findValue(storeRangeValue, paymentTrans.Store))
+            if (storeRangeValue && !SysQuery::findValue(storeRangeValue, stmtLine.StoreId))
             {
                 continue;
             }
 
             // Look up store name from RetailChannelView
             select firstonly Name from channelView
-                where channelView.RetailChannelId == paymentTrans.Store;
+                where channelView.RetailChannelId == stmtLine.StoreId;
 
             // Look up tender type name from RetailStoreTenderTypeTable
-            // Note: detail column is TenderType, lookup column is TenderTypeId
             select firstonly Name from tenderType
-                where tenderType.TenderTypeId == paymentTrans.TenderType
+                where tenderType.TenderTypeId == stmtLine.TenderTypeId
                    && tenderType.Channel      == channelView.RecId
-                   && tenderType.dataAreaId   == paymentTrans.dataAreaId;
+                   && tenderType.dataAreaId   == stmtLine.dataAreaId;
 
             tmpTable.clear();
-            tmpTable.StoreId        = paymentTrans.Store;
+            tmpTable.StoreId        = stmtLine.StoreId;
             tmpTable.StoreName      = channelView.Name;
-            tmpTable.TenderTypeId   = paymentTrans.TenderType;
+            tmpTable.TenderTypeId   = stmtLine.TenderTypeId;
             tmpTable.TenderTypeName = tenderType.Name;
-            tmpTable.CurrencyCode   = paymentTrans.Currency;
-            tmpTable.TotalAmount    = paymentTrans.AmountTendered;
+            tmpTable.CurrencyCode   = stmtLine.Currency;
+            tmpTable.TotalCounted   = stmtLine.CountedAmount;
             tmpTable.insert();
         }
     }
